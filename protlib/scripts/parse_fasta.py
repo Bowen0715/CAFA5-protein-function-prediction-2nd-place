@@ -35,18 +35,20 @@ def create_train(path, output):
 
                 # initialize d_row and empty seq
                 d_row, seq = {}, ''
-                # parse first line
-                d_row['EntryID'], row = row[1:].split(' ', 1)
-                # d_row['taxonomyID'] = tax[d_row['EntryID']]
-                d_row['source'], _, row = row.split('|', 2)
-                d_row['gene_name'], row = row.split(' ', 1)
-                
-                key = d_row['EntryID']
-                if '|' in key:
-                    key = key.split('|')[1]
-
-                d_row['taxonomyID'] = int(tax.loc[key])
-                d_row['EntryID'] = key
+                # full header line without '>'
+                header = row[1:].rstrip("\n")
+                # split first token and the rest
+                first_token, row = header.split(" ", 1)
+                # parse UniProt-style ID: sp|ACC|NAME
+                if '|' in first_token:
+                    source, acc, gene_name = first_token.split('|', 2)
+                else:
+                    source, acc, gene_name = None, first_token, None
+                # normalize EntryID to accession
+                d_row['EntryID'] = acc
+                d_row['taxonomyID'] = int(tax.loc[acc])
+                d_row['source'] = source
+                d_row['gene_name'] = gene_name
 
                 k = 'descr'
 
@@ -92,7 +94,9 @@ def create_test(path, output):
                 # initialize d_row and empty seq
                 d_row, seq = {}, ''
                 # parse first line
-                d_row['EntryID'], d_row['taxonomyID'] = row[1:-1].split('\t', 1)
+                # d_row['EntryID'], d_row['taxonomyID'] = row[1:-1].split('\t', 1)
+                parts = row[1:].strip().split(None, 1)  # split on any whitespace
+                d_row['EntryID'] = parts[0]
                 d_row['taxonomyID'] = int(d_row['taxonomyID'])
 
             else:

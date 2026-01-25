@@ -1,27 +1,10 @@
 # ---- read YAML with python ----
 cd /root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place
+BASE_PATH="/root/autodl-tmp/cafa6/"
+RAPIDS_ENV_NAME="rapids-env/bin/python"
+PYTORCH_ENV_NAME="pytorch-env/bin/python"
 
-BASE_PATH=$(python - <<'PY'
-import yaml
-print(yaml.safe_load(open("config.yaml"))["base_path"])
-PY
-)
-
-RAPIDS_ENV=$(python - <<'PY'
-import yaml, os
-cfg = yaml.safe_load(open("config.yaml"))
-print(os.path.join(cfg["base_path"], cfg["rapids-env"]))
-PY
-)
-
-PYTORCH_ENV=$(python - <<'PY'
-import yaml, os
-cfg = yaml.safe_load(open("config.yaml"))
-print(os.path.join(cfg["base_path"], cfg["pytorch-env"]))
-PY
-)
-
-CONFIG_PATH="${BASE_PATH}config.yaml"
+CONFIG_PATH="/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/config.yaml"
 RAPIDS_ENV="${BASE_PATH}${RAPIDS_ENV_NAME}"
 PYTORCH_ENV="${BASE_PATH}${PYTORCH_ENV_NAME}"
 
@@ -37,56 +20,60 @@ PYTORCH_ENV="${BASE_PATH}${PYTORCH_ENV_NAME}"
   --config-path "${CONFIG_PATH}" \
   --batch-size 10000
 
-# ---- download external go data ----
-"${RAPIDS_ENV}" protlib/scripts/downloads/dw_goant.py \
-  --config-path "${CONFIG_PATH}"
+# TODO
+if F; then
+  # ---- download external go data ----
+  "${RAPIDS_ENV}" protlib/scripts/downloads/dw_goant.py \
+    --config-path "${CONFIG_PATH}"
 
-python /root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/protlib/scripts/downloads/dw_goant.py \
-  --config-path /root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/config.yaml
+  python /root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/protlib/scripts/downloads/dw_goant.py \
+    --config-path /root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/config.yaml
 
-# ---- parse the files ----
-"${RAPIDS_ENV}" protlib/scripts/parse_go_single.py \
-  --file goa_uniprot_all.gaf.216.gz \
-  --config-path "${CONFIG_PATH}"
+  # ---- parse the files ----
+  "${RAPIDS_ENV}" protlib/scripts/parse_go_single.py \
+    --file goa_uniprot_all.gaf.216.gz \
+    --config-path "${CONFIG_PATH}"
 
-"${RAPIDS_ENV}" protlib/scripts/parse_go_single.py \
-  --file goa_uniprot_all.gaf.214.gz \
-  --config-path "${CONFIG_PATH}" \
-  --output old214
+  "${RAPIDS_ENV}" protlib/scripts/parse_go_single.py \
+    --file goa_uniprot_all.gaf.214.gz \
+    --config-path "${CONFIG_PATH}" \
+    --output old214
 
-# ---- propagate labels (train/test*) ----
-TEMPORAL_DIR="${BASE_PATH}/temporal"
-LABEL_DIR="${TEMPORAL_DIR}/labels"
-GRAPH_OBO="${BASE_PATH}/Train/go-basic.obo"
+  # ---- propagate labels (train/test*) ----
+  TEMPORAL_DIR="${BASE_PATH}/temporal"
+  LABEL_DIR="${TEMPORAL_DIR}/labels"
+  GRAPH_OBO="${BASE_PATH}/Train/go-basic.obo"
 
-shopt -s nullglob
-for f in "${LABEL_DIR}"/train* "${LABEL_DIR}"/test*; do
-  bn="$(basename "$f")"
-  out="${LABEL_DIR}/prop_${bn}"
+  shopt -s nullglob
+  for f in "${LABEL_DIR}"/train* "${LABEL_DIR}"/test*; do
+    bn="$(basename "$f")"
+    out="${LABEL_DIR}/prop_${bn}"
+    "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/prop_tsv.py" \
+      --path "${f}" \
+      --graph "${GRAPH_OBO}" \
+      --output "${out}" \
+      --device "${DEVICE}" \
+      --batch_size 30000 \
+      --batch_inner 5000
+  done
+  shopt -u nullglob
+
+  # ---- create datasets + propagate quickgo51.tsv ----
+  "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/reproduce_mt.py" \
+    --path "${TEMPORAL_DIR}" \
+    --graph "${GRAPH_OBO}"
+
   "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/prop_tsv.py" \
-    --path "${f}" \
+    --path "${TEMPORAL_DIR}/quickgo51.tsv" \
     --graph "${GRAPH_OBO}" \
-    --output "${out}" \
+    --output "${TEMPORAL_DIR}/prop_quickgo51.tsv" \
     --device "${DEVICE}" \
     --batch_size 30000 \
     --batch_inner 5000
-done
-shopt -u nullglob
-
-# ---- create datasets + propagate quickgo51.tsv ----
-"${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/reproduce_mt.py" \
-  --path "${TEMPORAL_DIR}" \
-  --graph "${GRAPH_OBO}"
-
-"${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/prop_tsv.py" \
-  --path "${TEMPORAL_DIR}/quickgo51.tsv" \
-  --graph "${GRAPH_OBO}" \
-  --output "${TEMPORAL_DIR}/prop_quickgo51.tsv" \
-  --device "${DEVICE}" \
-  --batch_size 30000 \
-  --batch_inner 5000
+fi
 
 # ---- prepare NN solution ----
+BASE_PATH="/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place"
 "${PYTORCH_ENV}" "${BASE_PATH}/nn_solution/prepare.py" \
   --config-path "${CONFIG_PATH}"
 

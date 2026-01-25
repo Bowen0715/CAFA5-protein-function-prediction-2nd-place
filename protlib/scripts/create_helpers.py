@@ -73,12 +73,13 @@ if __name__ == '__main__':
         columns=['EntryID'],
     )['EntryID'].values
 
-    ia_dict = ia_parser(os.path.join(config['base_path'], 'IA.txt'))
+    ia_dict = ia_parser('/root/autodl-tmp/IA.tsv')
     ontologies = []
     for ns, terms_dict in obo_parser(os.path.join(config['base_path'], 'Train/go-basic.obo')).items():
         ontologies.append(Graph(ns, terms_dict, ia_dict, True))
 
-    for n, i in tqdm.tqdm(enumerate(range(0, vec_train_protein_ids.shape[0], args.batch_size))):
+    iters = range(0, vec_train_protein_ids.shape[0], args.batch_size)
+    for n, i in tqdm.tqdm(enumerate(iters), total=len(iters), desc="Building GO targets", unit="batch"):
 
         idx = vec_train_protein_ids[i: i + args.batch_size]
         num = Series(np.arange(idx.shape[0]), index=idx)
