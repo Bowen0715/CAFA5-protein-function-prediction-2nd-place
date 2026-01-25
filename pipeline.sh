@@ -94,6 +94,19 @@ CONFIG_PATH="${BASE_PATH}/config.yaml"
 
 cd /root/autodl-tmp/cafa6
 mkdir -p models
+
+"${PYTORCH_ENV}" "${BASE_PATH}/memmap_to_npy.py" \
+  --embed-dir /root/autodl-tmp/embed/esm_embed/train/ \
+  --feather /root/autodl-tmp/cafa6/helpers/fasta/train_seq.feather \
+  --id-col EntryID \
+  --out /root/autodl-tmp/cafa6/embeds/esm_small/train_embeds.npy
+
+"${PYTORCH_ENV}" "${BASE_PATH}/memmap_to_npy.py" \
+  --embed-dir /root/autodl-tmp/embed/esm_embed/test/ \
+  --feather /root/autodl-tmp/cafa6/helpers/fasta/test_seq.feather \
+  --id-col EntryID \
+  --out /root/autodl-tmp/cafa6/embeds/esm_small/test_embeds.npy
+
 # ---- train PB models ----
 RAPIDS_ENV="/root/autodl-tmp/cafa6/rapids-env/bin/python"
 for model_name in pb_t54500_raw pb_t54500_cond pb_t5esm4500_raw pb_t5esm4500_cond; do
@@ -102,7 +115,7 @@ for model_name in pb_t54500_raw pb_t54500_cond pb_t5esm4500_raw pb_t5esm4500_con
     --config-path "${CONFIG_PATH}" \
     --model-name "${model_name}" \
     --device 0 \
-    > "logs/${model_name}.log" 2>&1
+    > "/root/autodl-tmp/cafa6/logs/${model_name}.log" 2>&1
 done
 
 # ---- train linear models ----
