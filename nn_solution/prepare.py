@@ -19,7 +19,7 @@ parser.add_argument('-c', '--config-path', type=str)
 #DATA_DIR2 = "/kaggle/input/t5embeds/"
 #DATA_DIR3 = './'
 
-n_labels_to_consider = 31466 # We will choose only top frequent labels (in train) and predict only them. 
+n_labels_to_consider = 26126 # We will choose only top frequent labels (in train) and predict only them. 
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -37,8 +37,8 @@ if __name__ == '__main__':
     print(vec_freqCount)
 
     labels_to_consider = np.array(list(vec_freqCount.index[:n_labels_to_consider] ))
-    # np.save(os.path.join(DATA_DIR3,'Y_31466_labels.npy'), labels_to_consider)
-    np.save(os.path.join(feats_path,'Y_31466_labels.npy'), labels_to_consider)
+    # np.save(os.path.join(DATA_DIR3,'Y_26125_labels.npy'), labels_to_consider)
+    np.save(os.path.join(feats_path,'Y_26125_labels.npy'), labels_to_consider)
 
     # xxs = np.load(os.path.join(DATA_DIR2, 'train_ids.npy'))
     xxs = pd.read_feather(
@@ -53,8 +53,8 @@ if __name__ == '__main__':
                                    (trainTerms['x'].values, trainTerms['y'].values)
                                   )
                                  ).tocsr().astype(np.float32)
-    # scipy.sparse.save_npz(os.path.join(DATA_DIR3,'Y_31466_sparse_float32.npz'), mat)
-    scipy.sparse.save_npz(os.path.join(feats_path,'Y_31466_sparse_float32.npz'), mat)
+    # scipy.sparse.save_npz(os.path.join(DATA_DIR3,'Y_26125_sparse_float32.npz'), mat)
+    scipy.sparse.save_npz(os.path.join(feats_path,'Y_26125_sparse_float32.npz'), mat)
 
     # train_terms = pd.read_csv(os.path.join(DATA_DIR1, 'Train', 'train_terms.tsv'), sep='\t')
     train_terms = pd.read_csv(os.path.join(base_path, 'Train', 'train_terms.tsv'), sep='\t')

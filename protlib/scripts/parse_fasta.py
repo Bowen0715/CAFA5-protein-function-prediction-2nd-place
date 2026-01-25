@@ -13,7 +13,13 @@ parser.add_argument('-c', '--config-path', type=str)
 def create_train(path, output):
     df = []
     d_row, seq = None, None
-    tax = pd.read_csv(os.path.join(path, 'train_taxonomy.tsv'), sep='\t', index_col='EntryID').squeeze()
+    tax = pd.read_csv(
+        os.path.join(path, 'train_taxonomy.tsv'),
+        sep='\t',
+        header=None,
+        names=['EntryID', 'taxonomyID'],
+        index_col='EntryID'
+    )['taxonomyID'].astype(int)
 
     with open(os.path.join(path, 'train_sequences.fasta')) as f:
 
@@ -31,9 +37,16 @@ def create_train(path, output):
                 d_row, seq = {}, ''
                 # parse first line
                 d_row['EntryID'], row = row[1:].split(' ', 1)
-                d_row['taxonomyID'] = tax[d_row['EntryID']]
+                # d_row['taxonomyID'] = tax[d_row['EntryID']]
                 d_row['source'], _, row = row.split('|', 2)
                 d_row['gene_name'], row = row.split(' ', 1)
+                
+                key = d_row['EntryID']
+                if '|' in key:
+                    key = key.split('|')[1]
+
+                d_row['taxonomyID'] = int(tax.loc[key])
+                d_row['EntryID'] = key
 
                 k = 'descr'
 
@@ -102,7 +115,7 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
     helpers_path = os.path.join(config['base_path'], config['helpers_path'])
     train_path = os.path.join(config['base_path'], 'Train/')
-    test_path = os.path.join(config['base_path'], 'Test (Targets)/')
+    test_path = os.path.join(config['base_path'], 'Test/')
     output_path = os.path.join(helpers_path, 'fasta')
 
     os.makedirs(output_path, exist_ok=True)

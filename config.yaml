@@ -1,4 +1,4 @@
-base_path: ./ # working dir
+base_path: /root/autodl-tmp/cafa6/ # working dir
 # environments
 rapids-env: rapids-env/bin/python
 pytorch-env: pytorch-env/bin/python

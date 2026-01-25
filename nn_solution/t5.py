@@ -11,13 +11,33 @@ from transformers import T5Tokenizer, T5EncoderModel
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--config-path', type=str)
-parser.add_argument('-d', '--device', type=str, default="1")
+parser.add_argument('-d', '--device', type=str, default="0")
 
+def chunk_sequence(seq: str, window: int = 1024, stride: int = 512):
+    seq = re.sub(r"[UZOB]", "X", seq)
+    n = len(seq)
+    if n <= window:
+        return [seq]
+    chunks = []
+    for start in range(0, n, stride):
+        chunk = seq[start:start + window]
+        if len(chunk) < 50:  # 太短的尾巴可以丢掉（你也可以保留）
+            break
+        chunks.append(chunk)
+        if start + window >= n:
+            break
+    return chunks
 
 def get_embeddings(model, tokenizer, seq):
     sequence_examples = [" ".join(list(re.sub(r"[UZOB]", "X", seq)))]
 
-    ids = tokenizer.batch_encode_plus(sequence_examples, add_special_tokens=True, padding="longest")
+    ids = tokenizer.batch_encode_plus(
+        sequence_examples,
+        add_special_tokens=True,
+        padding="longest",
+        truncation=True,
+        max_length=1024,
+    )
 
     input_ids = torch.tensor(ids['input_ids']).to(device)
     attention_mask = torch.tensor(ids['attention_mask']).to(device)
@@ -43,8 +63,9 @@ if __name__ == '__main__':
 
     device = torch.device(f'cuda:{args.device}' if torch.cuda.is_available() else 'cpu')
 
-    tokenizer = T5Tokenizer.from_pretrained('Rostlab/prot_t5_xl_half_uniref50-enc', do_lower_case=False)
-    model = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_half_uniref50-enc").to(device)
+    # pre-downloaded model
+    tokenizer = T5Tokenizer.from_pretrained('/root/autodl-tmp/cafa6/prot_t5', local_files_only=True, do_lower_case=False)
+    model = T5EncoderModel.from_pretrained('/root/autodl-tmp/cafa6/prot_t5', local_files_only=True,).to(device)
     model.eval()
 
     kaggle_dataset = config['base_path']  # sys.argv[1]
@@ -54,19 +75,26 @@ if __name__ == '__main__':
     fn = os.path.join(kaggle_dataset, 'Train', 'train_sequences.fasta')
     sequences = SeqIO.parse(fn, "fasta")
     num_sequences = sum(1 for seq in sequences)
+    sequences = SeqIO.parse(fn, "fasta")
 
     ids = []
     embeds = np.zeros((num_sequences, 1024))
-    i = 0
-    for seq in tqdm.tqdm(sequences):
-        ids.append(seq.id)
-        embeds[i] = get_embeddings(model, tokenizer, str(seq.seq)).detach().cpu().numpy()
-        i += 1
+
+    with tqdm.tqdm(
+        total=num_sequences,
+        desc="Train T5 embeddings",
+        unit="seq",
+        dynamic_ncols=True,
+    ) as pbar:
+        for i, seq in enumerate(sequences):
+            ids.append(seq.id)
+            embeds[i] = get_embeddings(model, tokenizer, str(seq.seq)).cpu().numpy()
+            pbar.update(1)
 
     np.save(os.path.join(output_path, 'train_embeds.npy'), embeds)
     np.save(os.path.join(output_path, 'train_ids.npy'), np.array(ids))
 
-    fn = os.path.join(kaggle_dataset, 'Test (Targets)', 'testsuperset.fasta')
+    fn = os.path.join(kaggle_dataset, 'Test', 'testsuperset.fasta')
 
     sequences = SeqIO.parse(fn, "fasta")
     num_sequences = sum(1 for seq in sequences)
@@ -75,11 +103,17 @@ if __name__ == '__main__':
 
     ids = []
     embeds = np.zeros((num_sequences, 1024))
-    i = 0
-    for seq in tqdm.tqdm(sequences):
-        ids.append(seq.id)
-        embeds[i] = get_embeddings(model, tokenizer, str(seq.seq)).detach().cpu().numpy()
-        i += 1
+
+    with tqdm.tqdm(
+        total=num_sequences,
+        desc="Test T5 embeddings",
+        unit="seq",
+        dynamic_ncols=True,
+    ) as pbar:
+        for i, seq in enumerate(sequences):
+            ids.append(seq.id)
+            embeds[i] = get_embeddings(model, tokenizer, str(seq.seq)).cpu().numpy()
+            pbar.update(1)
 
     np.save(os.path.join(output_path, 'test_embeds.npy'), embeds)
     np.save(os.path.join(output_path, 'test_ids.npy'), np.array(ids))
