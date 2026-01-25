@@ -89,19 +89,20 @@ CONFIG_PATH="${BASE_PATH}/config.yaml"
 
 "${PYTORCH_ENV}" "${BASE_PATH}/nn_solution/t5.py" \
   --config-path "${CONFIG_PATH}" 
-
 "${PYTORCH_ENV}" "${BASE_PATH}/nn_solution/esm2sm.py" \
   --config-path "${CONFIG_PATH}" 
 
+cd /root/autodl-tmp/cafa6
 mkdir -p models
-
 # ---- train PB models ----
+RAPIDS_ENV="/root/autodl-tmp/cafa6/rapids-env/bin/python"
 for model_name in pb_t54500_raw pb_t54500_cond pb_t5esm4500_raw pb_t5esm4500_cond; do
   echo "[INFO] Training ${model_name}"
   "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/train_pb.py" \
     --config-path "${CONFIG_PATH}" \
     --model-name "${model_name}" \
-    --device "${DEVICE}"
+    --device 0 \
+    > "logs/${model_name}.log" 2>&1
 done
 
 # ---- train linear models ----

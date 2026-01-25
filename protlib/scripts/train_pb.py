@@ -92,7 +92,7 @@ if __name__ == '__main__':
 
     print(X.shape, X_test.shape)
 
-    N_FOLDS = 5
+    N_FOLDS = 2
     # assume embedding sum is our key
     key = np.array(list(map(hash, X.sum(axis=1))))
     test_key = np.array(list(map(hash, X_test.sum(axis=1))))
