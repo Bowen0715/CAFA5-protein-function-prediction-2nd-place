@@ -8,6 +8,7 @@ from ..metric import get_funcs_mapper
 
 
 def get_tax(fasta):
+    # TODO: update tax list
     tax_list = [
         9606, 3702, 10090, 7955, 7227, 10116, 559292, 6239,
         284812, 83333, 83332, 44689, 237561, 39947, 9031, 36329,

@@ -101,11 +101,10 @@ mkdir -p models
   --id-col EntryID \
   --out /root/autodl-tmp/cafa6/embeds/esm_small/train_embeds.npy
 
-"${PYTORCH_ENV}" "${BASE_PATH}/memmap_to_npy.py" \
-  --embed-dir /root/autodl-tmp/embed/esm_embed/test/ \
-  --feather /root/autodl-tmp/cafa6/helpers/fasta/test_seq.feather \
+"${PYTORCH_ENV}" "${BASE_PATH}/make_ids_from_feather.py" \
+  --feather /root/autodl-tmp/cafa6/helpers/fasta/train_seq.feather \
   --id-col EntryID \
-  --out /root/autodl-tmp/cafa6/embeds/esm_small/test_embeds.npy
+  --out /root/autodl-tmp/cafa6/embeds/t5/train_ids.npy
 
 # ---- train PB models ----
 RAPIDS_ENV="/root/autodl-tmp/cafa6/rapids-env/bin/python"
