@@ -78,7 +78,8 @@ if __name__ == '__main__':
         ids=cols,
         fillna=fillna
     )
-
+    print(Y.shape)
+    print(Y)
     train_embeds = [os.path.join(embeds_path, x, 'train_embeds.npy') for x in model_config['embeds']]
     test_embeds = [os.path.join(embeds_path, x, 'test_embeds.npy') for x in model_config['embeds']]
 
@@ -92,7 +93,7 @@ if __name__ == '__main__':
 
     print(X.shape, X_test.shape)
 
-    N_FOLDS = 2
+    N_FOLDS = 5
     # assume embedding sum is our key
     key = np.array(list(map(hash, X.sum(axis=1))))
     test_key = np.array(list(map(hash, X_test.sum(axis=1))))

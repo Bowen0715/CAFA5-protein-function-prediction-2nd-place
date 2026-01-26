@@ -16,9 +16,19 @@ PYTORCH_ENV="${BASE_PATH}${PYTORCH_ENV_NAME}"
 "${RAPIDS_ENV}" protlib/scripts/parse_fasta.py \
   --config-path "${CONFIG_PATH}"
 
+awk 'BEGIN{OFS="\t"}
+NR==1 {print; next}
+{
+  if ($3=="P") $3="BPO";
+  else if ($3=="F") $3="MFO";
+  else if ($3=="C") $3="CCO";
+  print
+}' /root/autodl-tmp/cafa6/Train/train_terms_ori.tsv \
+> /root/autodl-tmp/cafa6/Train/train_terms.tsv
+
 "${RAPIDS_ENV}" protlib/scripts/create_helpers.py \
   --config-path "${CONFIG_PATH}" \
-  --batch-size 10000
+  --batch-size 10000 -p
 
 # TODO
 if F; then
@@ -96,15 +106,32 @@ cd /root/autodl-tmp/cafa6
 mkdir -p models
 
 "${PYTORCH_ENV}" "${BASE_PATH}/memmap_to_npy.py" \
-  --embed-dir /root/autodl-tmp/embed/esm_embed/train/ \
-  --feather /root/autodl-tmp/cafa6/helpers/fasta/train_seq.feather \
-  --id-col EntryID \
-  --out /root/autodl-tmp/cafa6/embeds/esm_small/train_embeds.npy
+  --memmap /root/autodl-tmp/embed/T5_embed/test/embeddings.memmap.float16 \
+  --out    /root/autodl-tmp/cafa6/embeds/t5/test_embeds.npy
 
-"${PYTORCH_ENV}" "${BASE_PATH}/make_ids_from_feather.py" \
+"${RAPIDS_ENV}" "${BASE_PATH}/make_ids_from_feather.py" \
   --feather /root/autodl-tmp/cafa6/helpers/fasta/train_seq.feather \
   --id-col EntryID \
-  --out /root/autodl-tmp/cafa6/embeds/t5/train_ids.npy
+  --out /root/autodl-tmp/cafa6/embeds/esm_small/train_ids.npy
+
+"${RAPIDS_ENV}" - <<'PY'
+  import numpy as np
+  import pandas as pd
+  import os
+
+  def save_unicode_ids(feather, out, id_col="EntryID"):
+      df = pd.read_feather(feather)
+      ids = df[id_col].astype(str).to_numpy(dtype="U")  # Unicode array, not object
+      os.makedirs(os.path.dirname(out), exist_ok=True)
+      np.save(out, ids)
+      print("saved:", out, ids.shape, ids.dtype, "maxlen", max(map(len, ids)))
+
+  for dataset in ["train", "test"]:
+      feather = f"/root/autodl-tmp/cafa6/helpers/fasta/{dataset}_seq.feather"
+
+      save_unicode_ids(feather, f"/root/autodl-tmp/cafa6/embeds/esm_small/{dataset}_ids.npy")
+      save_unicode_ids(feather, f"/root/autodl-tmp/cafa6/embeds/t5/{dataset}_ids.npy")
+PY
 
 # ---- train PB models ----
 RAPIDS_ENV="/root/autodl-tmp/cafa6/rapids-env/bin/python"

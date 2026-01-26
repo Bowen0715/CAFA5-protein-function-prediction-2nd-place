@@ -97,7 +97,7 @@ def create_test(path, output):
                 # d_row['EntryID'], d_row['taxonomyID'] = row[1:-1].split('\t', 1)
                 parts = row[1:].strip().split(None, 1)  # split on any whitespace
                 d_row['EntryID'] = parts[0]
-                d_row['taxonomyID'] = int(d_row['taxonomyID'])
+                d_row['taxonomyID'] = int(parts[1])
 
             else:
                 seq += row[:-1]

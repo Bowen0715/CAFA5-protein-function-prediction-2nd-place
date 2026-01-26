@@ -22,7 +22,7 @@ except Exception:
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--config-path', type=str)
 parser.add_argument('-b', '--batch-size', type=int)
-parser.add_argument('-p', '--propagate', type=bool, default=False)
+parser.add_argument('-p', '--propagate', action='store_true')
 
 
 @njit
@@ -104,7 +104,9 @@ if __name__ == '__main__':
             for k, node in enumerate(ont.terms_list):
                 adj = node['adj']
                 if len(adj) > 0:
-                    na = np.nonzero(np.nansum(trg[:, adj], axis=1) == 0)[0]
+                    # na = np.nonzero(np.nansum(trg[:, adj], axis=1) == 0)[0]
+                    s = np.nansum(trg[:, adj], axis=1)
+                    na = np.nonzero((s == 0) & (trg[:, k] == 0))[0] 
                     assert np.nansum(trg[na, k]) == 0, 'Should be empty'
                     trg[na, k] = np.nan
 

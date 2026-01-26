@@ -45,19 +45,19 @@ def get_topk_targets(G, topk, train_path='Train', trainTerms=None, ex_top=False,
     return vc['id'].tolist()
 
 
+def get_ns_id(G):
+    ns_id = ['biological_process', 'molecular_function', 'cellular_component'].index(G.namespace)
+    ns_str = ''.join(map(lambda x: x[0], G.namespace.split('_')))
+
+    return ns_id, ns_str
+
+
 def get_funcs_mapper(G, fwd=True):
     mapper = [x['id'] for x in G.terms_list]
     if fwd:
         return pd.Series(np.arange(len(mapper)), index=mapper)
 
     return pd.Series(mapper)
-
-
-def get_ns_id(G):
-    ns_id = ['biological_process', 'molecular_function', 'cellular_component'].index(G.namespace)
-    ns_str = ''.join(map(lambda x: x[0], G.namespace.split('_')))
-
-    return ns_id, ns_str
 
 
 def get_depths(G, top=False):
