@@ -34,3 +34,18 @@ print("example missing:", missing[:20])
 import joblib
 import os
 test_pred = joblib.load('/root/autodl-tmp/cafa6/models/pb_t54500_raw/test_pred.pkl')
+
+
+import cudf
+df = cudf.read_csv(
+    "/root/autodl-tmp/cafa6/temporal/labels/train_no_kaggle.tsv",
+    sep="\t",
+    usecols=["EntryID", "term"],
+)
+print(df.head())
+
+import sys
+sys.path.append('/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place')
+from protlib.metric import obo_parser, Graph, ia_parser
+import inspect
+print(inspect.getsource(ia_parser))

@@ -53,7 +53,7 @@ if __name__ == '__main__':
     # create paths
     models_path = os.path.join(config['base_path'], config['models_path'])
     graph_path = os.path.join(config['base_path'], 'Train/go-basic.obo')
-    ia_path = os.path.join(config['base_path'], 'IA.txt')
+    ia_path = os.path.join(config['base_path'], 'IA.tsv')
     helpers_path = os.path.join(config['base_path'], config['helpers_path'])
     temporal_path = os.path.join(config['base_path'], config['temporal_path'])
 
@@ -184,9 +184,9 @@ if __name__ == '__main__':
     evaluator = CAFAEvaluator(
         os.path.join(config['base_path'], config['rapids-env']),
         os.path.join(temp_dir, 'labels.tsv'),  # targets path
-        config['base_path'],  # path to import protlib
+        '/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place',  # path to import protlib
         os.path.join(config['base_path'], 'Train/go-basic.obo'),
-        os.path.join(config['base_path'], 'IA.txt'),
+        os.path.join(config['base_path'], 'IA.tsv'),
         ids_to_take,  # ids to use
         G,  # parsed graph
         batch_size=3000,

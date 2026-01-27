@@ -40,44 +40,45 @@ if F; then
     --config-path /root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/config.yaml
 
   # ---- parse the files ----
-  "${RAPIDS_ENV}" protlib/scripts/parse_go_single.py \
-    --file goa_uniprot_all.gaf.216.gz \
+  "${RAPIDS_ENV}" /root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/protlib/scripts/parse_go_single.py \
+    --file /root/autodl-tmp/cafa6/temporal/goa_uniprot_all.gaf.216.gz \
     --config-path "${CONFIG_PATH}"
 
-  "${RAPIDS_ENV}" protlib/scripts/parse_go_single.py \
-    --file goa_uniprot_all.gaf.214.gz \
+  "${RAPIDS_ENV}" /root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/protlib/scripts/parse_go_single.py \
+    --file /root/autodl-tmp/cafa6/temporal/goa_uniprot_all.gaf.214.gz \
     --config-path "${CONFIG_PATH}" \
     --output old214
 
   # ---- propagate labels (train/test*) ----
+  BASE_PATH="/root/autodl-tmp/cafa6/"
   TEMPORAL_DIR="${BASE_PATH}/temporal"
   LABEL_DIR="${TEMPORAL_DIR}/labels"
   GRAPH_OBO="${BASE_PATH}/Train/go-basic.obo"
 
-  shopt -s nullglob
+  "${RAPIDS_ENV}" /root/test_env.py
+
   for f in "${LABEL_DIR}"/train* "${LABEL_DIR}"/test*; do
     bn="$(basename "$f")"
     out="${LABEL_DIR}/prop_${bn}"
-    "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/prop_tsv.py" \
+    "${RAPIDS_ENV}" "/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/protlib/scripts/prop_tsv.py" \
       --path "${f}" \
       --graph "${GRAPH_OBO}" \
       --output "${out}" \
-      --device "${DEVICE}" \
+      --device 0 \
       --batch_size 30000 \
       --batch_inner 5000
   done
-  shopt -u nullglob
 
   # ---- create datasets + propagate quickgo51.tsv ----
-  "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/reproduce_mt.py" \
+  "${RAPIDS_ENV}" "/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/protlib/scripts/reproduce_mt.py" \
     --path "${TEMPORAL_DIR}" \
     --graph "${GRAPH_OBO}"
 
-  "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/prop_tsv.py" \
+  "${RAPIDS_ENV}" "/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/protlib/scripts/prop_tsv.py" \
     --path "${TEMPORAL_DIR}/quickgo51.tsv" \
     --graph "${GRAPH_OBO}" \
     --output "${TEMPORAL_DIR}/prop_quickgo51.tsv" \
-    --device "${DEVICE}" \
+    --device 0 \
     --batch_size 30000 \
     --batch_inner 5000
 fi
