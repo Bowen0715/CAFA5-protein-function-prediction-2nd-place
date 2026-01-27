@@ -30,3 +30,7 @@ parquet_cols = set(df0.columns)
 missing = [c for c in cols if c not in parquet_cols]
 print("cols missing in parquet:", len(missing))
 print("example missing:", missing[:20])
+
+import joblib
+import os
+test_pred = joblib.load('/root/autodl-tmp/cafa6/models/pb_t54500_raw/test_pred.pkl')

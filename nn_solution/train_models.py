@@ -268,7 +268,7 @@ if __name__ == '__main__':
     mode_loc = 'full'
 
     n_samples_to_consider = 142246  # 1000 #   50_000#   142246 #    downsampling - might be useful for debug:  small number - fast run
-    n_labels_to_consider = 2000  # Up to 31466 but more than 3000-5000 may crash RAM
+    n_labels_to_consider = 2000  # Up to 26125 but more than 3000-5000 may crash RAM
     n_folds_to_process = 5  # can reduce number of folds to speed-up - set 1,2,3 .. , , here 100 folds does NOT mean 100 folds - it just will be effectively clipped down the same number as in loaded folds file
 
     list_main_config_model_feature_etc = []  #
@@ -448,14 +448,14 @@ if __name__ == '__main__':
 
     # Load targets Y
 
-    fn = os.path.join(FEAT_DIR, 'Y_31466_sparse_float32.npz')
+    fn = os.path.join(FEAT_DIR, 'Y_26125_sparse_float32.npz')
     Y = sparse.load_npz(fn)
     print('Y', Y.shape, 'loaded')
     Y = Y[:n_samples_to_consider, :n_labels_to_consider].toarray()
     print('Y', Y.shape, 'truncated')
     n_labels_to_consider = Y.shape[1]  # in case n_labels_to_consider is greater that Y.shape we decrease it
 
-    fn = os.path.join(FEAT_DIR, 'Y_31466_labels.npy')
+    fn = os.path.join(FEAT_DIR, 'Y_26125_labels.npy')
     Y_labels = np.load(fn, allow_pickle=True)[:n_labels_to_consider]
     labels_to_consider = Y_labels
     print(Y_labels.shape)
@@ -531,7 +531,7 @@ if __name__ == '__main__':
             #         print(inputs.shape)
 
             fc1_out = self.bn1(inputs)
-            fc1_out = self.ln1(self.fc1(inputs))
+            fc1_out = self.ln1(self.fc1(fc1_out))
             fc1_out = self.activation(fc1_out)
 
             x = self.bn2(fc1_out)

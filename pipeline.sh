@@ -132,6 +132,8 @@ mkdir -p models
       save_unicode_ids(feather, f"/root/autodl-tmp/cafa6/embeds/esm_small/{dataset}_ids.npy")
       save_unicode_ids(feather, f"/root/autodl-tmp/cafa6/embeds/t5/{dataset}_ids.npy")
 PY
+mamba activate /root/autodl-tmp/cafa6/pytorch-env
+mamba activate /root/autodl-tmp/cafa6/rapids-env
 
 # ---- train PB models ----
 RAPIDS_ENV="/root/autodl-tmp/cafa6/rapids-env/bin/python"
@@ -144,13 +146,36 @@ for model_name in pb_t54500_raw pb_t54500_cond pb_t5esm4500_raw pb_t5esm4500_con
     > "/root/autodl-tmp/cafa6/logs/${model_name}.log" 2>&1
 done
 
+"${PYTORCH_ENV}" "${BASE_PATH}/make_sub_from_test_pred.py"
+
+export MODEL_ROOT=/root/autodl-tmp/cafa6/models
+for model_name in pb_t54500_raw pb_t54500_cond pb_t5esm4500_raw pb_t5esm4500_cond; do
+  ls ${MODEL_ROOT}/${model_name}/model_*.pkl 2>/dev/null | \
+    xargs -P 10 zstd -19 --rm
+done
+
+for model_name in pb_t54500_raw pb_t54500_cond pb_t5esm4500_raw pb_t5esm4500_cond; do
+  find "${MODEL_ROOT}/${model_name}" -maxdepth 1 -name "model_*.pkl.zst" -print0 \
+  | xargs -0 -n 1 -P 4 bash -c '
+      f="$1"
+      out="${f%.zst}.xz"
+      echo "[INFO] $f -> $out"
+      zstd -dc "$f" | xz > "$out" && rm -f "$f"
+    ' _
+done
+
 # ---- train linear models ----
-for model_name in lin_t5_raw lin_t54500_cond; do
+BASE_PATH="/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place"
+RAPIDS_ENV="/root/autodl-tmp/cafa6/rapids-env/bin/python"
+CONFIG_PATH="${BASE_PATH}/config.yaml"
+# for model_name in lin_t5_raw lin_t5_cond; do
+for model_name in lin_t5_cond; do
   echo "[INFO] Training ${model_name}"
   "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/train_lin.py" \
     --config-path "${CONFIG_PATH}" \
     --model-name "${model_name}" \
-    --device "${DEVICE}"
+    --device 0 \
+    > "/root/autodl-tmp/cafa6/logs/${model_name}.log" 2>&1
 done
 
 # ---- train/infer stack models ----
@@ -159,21 +184,28 @@ done
 
 "${PYTORCH_ENV}" "${BASE_PATH}/nn_solution/train_models.py" \
   --config-path "${CONFIG_PATH}" \
-  --device "${DEVICE}"
+  --device 0 \
+  > "/root/autodl-tmp/cafa6/logs/nn_train.log" 2>&1
 
 "${PYTORCH_ENV}" "${BASE_PATH}/nn_solution/inference_models.py" \
   --config-path "${CONFIG_PATH}" \
-  --device "${DEVICE}"
+  --device 0 \
+  > "/root/autodl-tmp/cafa6/logs/nn_train.log" 2>&1
+
 
 "${PYTORCH_ENV}" "${BASE_PATH}/nn_solution/make_pkl.py" \
   --config-path "${CONFIG_PATH}"
 
 # ---- train GCN for bp/mf/cc ----
+BASE_PATH="/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place"
+RAPIDS_ENV="/root/autodl-tmp/cafa6/rapids-env/bin/python"
+CONFIG_PATH="${BASE_PATH}/config.yaml"
+
 for ont in bp mf cc; do
   "${PYTORCH_ENV}" "${BASE_PATH}/protnn/scripts/train_gcn.py" \
     --config-path "${CONFIG_PATH}" \
     --ontology "${ont}" \
-    --device "${DEVICE}"
+    --device 0
 done
 
 # ---- predict GCN ----

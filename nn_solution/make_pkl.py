@@ -212,7 +212,7 @@ if __name__ == '__main__':
     # Consider terms without parents, e.g. the root(s), in the evaluation
     no_orphans = False
     # Parse and set information accretion (optional)
-    ia_dict = ia_parser(os.path.join(DATA_DIR, 'IA.txt'))
+    ia_dict = ia_parser('/root/autodl-tmp/IA.tsv')
 
     # Parse the OBO file and creates a different graph for each namespace
     ontologies = []

@@ -119,7 +119,7 @@ if __name__ == '__main__':
         # train model
         model = LogRegMultilabel(alpha=0.00001)
         model.fit(X[tr_idx], Y[tr_idx])
-        joblib.dump(model, os.path.join(output, f'model_{f}.pkl'))
+        # joblib.dump(model, os.path.join(output, f'model_{f}.pkl'))
 
         # oof prediction
         oof_pred[ts_idx] += model.predict(X[ts_idx])
