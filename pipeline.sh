@@ -198,30 +198,32 @@ done
   --config-path "${CONFIG_PATH}"
 
 # ---- train GCN for bp/mf/cc ----
+mamba activate /root/autodl-tmp/cafa6/pytorch-env
 BASE_PATH="/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place"
 RAPIDS_ENV="/root/autodl-tmp/cafa6/rapids-env/bin/python"
 CONFIG_PATH="${BASE_PATH}/config.yaml"
-
-for ont in bp mf cc; do
+PYTORCH_ENV="/root/autodl-tmp/cafa6/pytorch-env/bin/python"
+for ont in cc mf bp cc; do
   "${PYTORCH_ENV}" "${BASE_PATH}/protnn/scripts/train_gcn.py" \
     --config-path "${CONFIG_PATH}" \
     --ontology "${ont}" \
-    --device 0
+    --device 0 \
+    2>&1 | tee -a "/root/autodl-tmp/cafa6/logs/gcn_train_${ont}.log"
 done
 
 # ---- predict GCN ----
 "${PYTORCH_ENV}" "${BASE_PATH}/protnn/scripts/predict_gcn.py" \
   --config-path "${CONFIG_PATH}" \
-  --device "${DEVICE}"
+  --device 0
 
 # ---- postproc / submission ----
 "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/postproc/collect_ttas.py" \
   --config-path "${CONFIG_PATH}" \
-  --device "${DEVICE}"
+  --device 0
 
 "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/postproc/step.py" \
   --config-path "${CONFIG_PATH}" \
-  --device "${DEVICE}" \
+  --device 0 \
   --batch_size 30000 \
   --batch_inner 3000 \
   --lr 0.7 \
@@ -229,7 +231,7 @@ done
 
 "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/postproc/step.py" \
   --config-path "${CONFIG_PATH}" \
-  --device "${DEVICE}" \
+  --device 0 \
   --batch_size 30000 \
   --batch_inner 3000 \
   --lr 0.7 \
@@ -237,7 +239,7 @@ done
 
 "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/postproc/make_submission.py" \
   --config-path "${CONFIG_PATH}" \
-  --device "${DEVICE}" \
+  --device 0 \
   --max-rate 0.5
 
 # ---- preview ----

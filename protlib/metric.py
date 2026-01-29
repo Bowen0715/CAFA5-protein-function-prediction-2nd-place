@@ -1,10 +1,6 @@
 import tqdm
-
-try:
-    import cudf
-except ImportError:
-    cudf = None
-
+import pandas as pd
+import numpy as np
 try:
     import cupy as cp
 except ImportError:
@@ -19,9 +15,9 @@ def get_target(trainTerms, G):
 
     sample = trainTerms.query(f'aspect == "{asp}"').copy()
     sample['ID'] = sample['term'].map(get_funcs_mapper(G))
-    sample['gt'] = np.ones(sample.shape[0], dtype=cp.float32)
+    sample['gt'] = np.ones(sample.shape[0], dtype=np.float32)
 
-    return cudf.from_pandas(sample.drop(['term', 'aspect'], axis=1).rename(columns={'EntryID': 'entry_id'}))
+    return pd.DataFrame(sample.drop(['term', 'aspect'], axis=1).rename(columns={'EntryID': 'entry_id'}))
 
 
 def get_ia(G, ia_path):
@@ -197,23 +193,26 @@ def propagate_df(batch, G, n_funcs, mode='fill'):
     if mode not in ['fill', 'cafa']:
         return batch
 
-    rows = batch['entry_num'].values
-    cols = batch['ID'].values
-    probs = batch['prob'].values
+    rows = batch['entry_num'].to_numpy(np.int64, copy=False)
+    cols = batch['ID'].to_numpy(np.int64, copy=False)
+    probs = batch['prob'].to_numpy(np.float32, copy=False)
+    rows_g = cp.asarray(rows, dtype=cp.int64)
+    cols_g = cp.asarray(cols, dtype=cp.int64)
+    probs_g = cp.asarray(probs, dtype=cp.float32)
     # print(rows)
     mat = cp.zeros((int(rows[-1]) + 1, n_funcs), dtype=cp.float32)
-    mat.scatter_add((rows, cols), probs)
+    mat.scatter_add((rows_g, cols_g), probs_g)
 
     propagate(mat, G, mode)
 
-    row, col = cp.nonzero(mat)
-    val = mat[row, col]
+    row_g, col_g = cp.nonzero(mat)
+    val_g = mat[row_g, col_g]
 
-    batch = cudf.DataFrame({
+    batch = pd.DataFrame({
 
-        'entry_num': row,
-        'ID': col,
-        'prob': val
+        'entry_num': row_g.get(),
+        'ID': col_g.get(),
+        'prob': val_g.get()
     }).sort_values(['entry_num', 'prob'], ascending=[True, False])
 
     return batch
@@ -222,16 +221,16 @@ def propagate_df(batch, G, n_funcs, mode='fill'):
 def iterate_from_df(df, G, batch_size, idx, back_idx, prop_mode='fill'):
     # if filename - read
     if type(df) is str:
-        sub = cudf.read_csv(df, sep='\t', header=None, names=['entry_id', 'ID', 'prob'])
+        sub = pd.read_csv(df, sep='\t', header=None, names=['entry_id', 'ID', 'prob'])
     else:
         sub = df
     n_funcs = len(G.terms_list)
 
-    check = cudf.Series(cp.ones(n_funcs, dtype=np.float32), index=[x['id'] for x in G.terms_list])
+    check = pd.Series(np.ones(n_funcs, dtype=np.float32), index=[x['id'] for x in G.terms_list])
     sub_single = sub[sub['ID'].map(check).notnull()]
     # add numeric id for function inside the domain
 
-    fmap = cudf.from_pandas(get_funcs_mapper(G))
+    fmap = get_funcs_mapper(G)
     sub_single['ID'] = sub_single['ID'].map(fmap)
 
     sub_single['entry_num'] = sub_single['entry_id'].map(idx)
@@ -254,12 +253,16 @@ def iterate_from_df(df, G, batch_size, idx, back_idx, prop_mode='fill'):
         yield batch
 
 def aggregate_fn(df, col, n_un, n_bins):
-    pvt = cp.zeros((n_un, n_bins), dtype=np.float32)
-    pvt.scatter_add((df['temp_id'].values, df['bin'].values), df[col].values)
+    temp_id = cp.asarray(df['temp_id'].to_numpy(np.int64, copy=False))
+    bins    = cp.asarray(df['bin'].to_numpy(np.int64, copy=False))
+    vals    = cp.asarray(df[col].to_numpy(np.float32, copy=False))
+
+    pvt = cp.zeros((n_un, n_bins), dtype=cp.float32)
+    pvt.scatter_add((temp_id, bins), vals)
 
     pvt = pvt.sum(axis=1, keepdims=True) - pvt.cumsum(axis=1)
 
-    return pvt
+    return pvt.get()
 
 
 class CAFAMetric:
@@ -283,23 +286,26 @@ class CAFAMetric:
 
         n_bins = 1001
 
-        unique = cudf.DataFrame(unique).rename(columns={0: 'entry_id'})
-        unique['temp_id'] = cp.arange(unique.shape[0], )
+        unique = pd.DataFrame(unique).rename(columns={0: 'entry_id'})
+        unique['temp_id'] = np.arange(unique.shape[0], )
         unique = unique.set_index('entry_id')['temp_id']
 
         n_un = unique.shape[0]
 
         # add gt
-        batch['pred'] = cp.ones(batch.shape[0], dtype=cp.float32)
-        merged = cudf.merge(batch, target, on=['entry_id', 'ID'], how='outer').fillna(0)
+        batch['pred'] = np.ones(batch.shape[0], dtype=np.float32)
+        merged = pd.merge(batch, target, on=['entry_id', 'ID'], how='outer').fillna(0)
         # filter toi
-        toi_sl = merged['ID'].isin(cp.asarray(G.toi))  # .astype(cp.float32)
+        # toi_sl = merged['ID'].isin(np.asarray(G.toi))  # .astype(np.float32)
+        # merged = merged['ID'].isin(np.asarray(G.toi))  # .astype(np.float32)
         merged['temp_id'] = merged['entry_id'].map(unique)
 
         # weights
-        merged['ia'] = merged['ID'].map(cudf.from_pandas(get_ia(G, self.ia_path))).astype(cp.float32)
+        merged['ia'] = merged['ID'].map(get_ia(G, self.ia_path)).astype(np.float32)
 
-        merged['bin'] = cp.floor(merged['prob'] * 1000).astype(cp.int32)
+        # merged['bin'] = (merged['prob'] * 1000).astype(int)
+        merged['bin'] = np.floor(np.clip(merged['prob'].to_numpy(np.float32), 0.0, 1.0) * 1000).astype(np.int32)
+        merged['bin'] = merged['bin'].astype(np.int32)
         # weighted stats
         merged['inter'] = (merged['pred'] == merged['gt']).astype(np.float32) * merged['ia']
         merged['wgt'] = merged['gt'] * merged['ia']
@@ -315,7 +321,7 @@ class CAFAMetric:
             .groupby('entry_id')['bin_x'].max() \
             .value_counts() \
             .to_frame() \
-            .join(cudf.DataFrame([], index=cudf.RangeIndex(n_bins)), how='right') \
+            .join(pd.DataFrame([], index=pd.RangeIndex(n_bins)), how='right') \
             .sort_index() \
             .fillna(0) \
             .cumsum()['bin_x'].values
@@ -323,7 +329,7 @@ class CAFAMetric:
         inter = aggregate_fn(merged, 'inter', n_un, n_bins)
         pred = aggregate_fn(merged, 'wpred', n_un, n_bins)
 
-        gt = merged.groupby('temp_id')['wgt'].sum().sort_index().values[:, cp.newaxis]
+        gt = merged.groupby('temp_id')['wgt'].sum().sort_index().values[:, np.newaxis]
 
         pr = np.where(pred == 0, 0, inter / pred).sum(axis=0)
         rc = np.where(gt == 0, 0, inter / gt).sum(axis=0)
@@ -337,7 +343,7 @@ class CAFAMetric:
             y_true = pd.read_csv(y_true, sep='\t')
 
         if type(y_pred) is str:
-            y_pred = cudf.read_csv(y_pred, sep='\t', header=None, names=['entry_id', 'ID', 'prob'])
+            y_pred = pd.read_csv(y_pred, sep='\t', header=None, names=['entry_id', 'ID', 'prob'])
 
         assert (np.array(y_pred.columns) == np.array(['entry_id', 'ID', 'prob'])).all()
 
@@ -353,7 +359,7 @@ class CAFAMetric:
                 .reset_index(drop=True) \
                 .reset_index()
 
-            ns_pred = cudf.merge(y_pred, ent, on='entry_id')
+            ns_pred = pd.merge(y_pred, ent, on='entry_id')
 
             metrics[name] = self.from_df_single(
                 target, ns_pred, G, ent
@@ -386,4 +392,4 @@ class CAFAMetric:
         rc = rc / len(back_idx)
         f1 = 2 * pr * rc / (pr + rc)
 
-        return float(cp.nanmax(f1))
+        return float(np.nanmax(f1))

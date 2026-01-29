@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.device
-    import cudf
+    # import cudf
 
     try:
         from protlib.metric import CAFAMetric
@@ -38,9 +38,9 @@ if __name__ == '__main__':
     os.makedirs(sub_path, exist_ok=True)
 
     # aggregate min prop and max prop
-    pred_max = cudf.read_csv(pp_max, sep='\t', header=None, names=['EntryID', 'term', 'prob'])
-    pred_min = cudf.read_csv(pp_min, sep='\t', header=None, names=['EntryID', 'term', 'prob'])
-    pred = cudf.merge(pred_max, pred_min, on=['EntryID', 'term'], how='outer').fillna(0)
+    pred_max = pd.read_csv(pp_max, sep='\t', header=None, names=['EntryID', 'term', 'prob'])
+    pred_min = pd.read_csv(pp_min, sep='\t', header=None, names=['EntryID', 'term', 'prob'])
+    pred = pd.merge(pred_max, pred_min, on=['EntryID', 'term'], how='outer').fillna(0)
     pred['prob'] = pred['prob_x'] * args.max_rate + pred['prob_y'] * (1 - args.max_rate)
     pred = pred[['EntryID', 'term', 'prob']]
 
@@ -68,30 +68,31 @@ if __name__ == '__main__':
         terms = [x['id'] for x in G.terms_list]
         mapper.append(pd.Series([n] * len(terms), index=terms))
 
-    mapper = cudf.from_pandas(pd.concat(mapper))
+    mapper = pd.concat(mapper)
 
     # goa leak
-    goa = cudf.read_csv(
+    goa = pd.read_csv(
         os.path.join(temporal_path, 'labels/prop_test_leak_no_dup.tsv'),
         sep='\t', usecols=['EntryID', 'term'])
     goa['prob'] = 0.99
 
     # gq51 dataset
-    qg = cudf.read_csv(
+    qg = pd.read_csv(
         os.path.join(temporal_path, 'prop_quickgo51.tsv'),
         sep='\t', usecols=['EntryID', 'term'])
     qg['prob'] = 0.99
 
     # diff
-    diff = cudf.read_csv(
+    diff = pd.read_csv(
         os.path.join(temporal_path, 'cafa-terms-diff.tsv'),
         header=None, sep='\t', names=['EntryID', 'term', 'prob']
     )
 
     # collect all together
-    pred = cudf.concat([pred, qg, goa, diff], ignore_index=False)
-    pred['ns'] = pred['term'].map(mapper).values
-    pred = pred.groupby(['EntryID', 'term']).mean().reset_index()
+    pred = pd.concat([pred, qg, goa, diff], ignore_index=False)
+    pred['ns'] = pred['term'].map(mapper)
+    # pred = pred.groupby(['EntryID', 'term']).mean().reset_index()
+    pred = pred.groupby(['EntryID', 'term'], as_index=False).mean()
     pred['rank'] = pred.groupby(['EntryID', 'ns'])['prob'].rank(method='dense', ascending=False) - 1
     pred = pred.query('rank < 500')
 

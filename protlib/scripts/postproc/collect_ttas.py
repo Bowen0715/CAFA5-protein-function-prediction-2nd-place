@@ -15,7 +15,8 @@ if __name__ == '__main__':
 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.device
-    import cudf
+    # import cudf
+    import pandas as pd
 
     try:
         from protlib.metric import CAFAMetric
@@ -26,7 +27,7 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
 
     graph_path = os.path.join(config['base_path'], 'Train/go-basic.obo')
-    ia_path = os.path.join(config['base_path'], 'IA.txt')
+    ia_path = os.path.join(config['base_path'], 'IA.tsv')
     pp_path = os.path.join(config['base_path'], config['models_path'], 'postproc')
     os.makedirs(pp_path, exist_ok=True)
 
@@ -39,12 +40,12 @@ if __name__ == '__main__':
     )
 
     tta_path = os.path.join(config['base_path'], config['models_path'], 'gcn/pred_tta_{0}.tsv')
-    pred = cudf.read_csv(tta_path.format(0), sep='\t', header=None, names=['EntryID', 'term', 'prob0'])
+    pred = pd.read_csv(tta_path.format(0), sep='\t', header=None, names=['EntryID', 'term', 'prob0'])
 
     for i in range(1, 4):
-        pred = cudf.merge(
+        pred = pd.merge(
             pred,
-            cudf.read_csv(tta_path.format(i), sep='\t', header=None, names=['EntryID', 'term', f'prob{i}']),
+            pd.read_csv(tta_path.format(i), sep='\t', header=None, names=['EntryID', 'term', f'prob{i}']),
             how='outer', on=['EntryID', 'term']
 
         ).fillna(0)

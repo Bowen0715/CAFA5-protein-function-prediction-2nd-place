@@ -80,12 +80,14 @@ if __name__ == '__main__':
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.device
     import cupy as cp
-    import cudf
+    # import cudf
+    import pandas as pd
+    import numpy as np
 
     try:
         from protlib.metric import get_funcs_mapper, get_ns_id, obo_parser, Graph, get_depths
     except Exception:
-        get_funcs_mapper, get_ns_id, obo_parser, Graph = [None] * 4
+        get_funcs_mapper, get_ns_id, obo_parser, Graph, get_depths = [None] * 5
 
     with open(args.config_path) as f:
         config = yaml.safe_load(f)
@@ -98,32 +100,45 @@ if __name__ == '__main__':
     input_path = os.path.join(pp_path, 'pred.tsv')
     output_path = os.path.join(pp_path, f'pred_{args.direction}.tsv')
 
-    trainTerms = cudf.read_csv(input_path, sep='\t', names=['EntryID', 'term', 'prob'], header=None)
+    trainTerms = pd.read_csv(input_path, sep='\t', names=['EntryID', 'term', 'prob'], header=None)
     ontologies = []
     for ns, terms_dict in obo_parser(graph_path).items():
         ontologies.append(Graph(ns, terms_dict, None, True))
 
     back_prot_id = trainTerms['EntryID'].drop_duplicates().reset_index(drop=True)
     length = len(back_prot_id)
-    prot_id = cudf.Series(cp.arange(length), back_prot_id)
-    trainTerms['id'] = trainTerms['EntryID'].map(prot_id)
+    # prot_id = cudf.Series(cp.arange(length), back_prot_id)
+    prot_id = pd.Series(np.arange(length, dtype=np.int64), index=back_prot_id.values)
+    trainTerms['id'] = trainTerms['EntryID'].map(prot_id).astype(np.int64)
 
     flg = True
 
     for i in tqdm.tqdm(range(0, length, args.batch_size)):
 
-        sample = trainTerms.query(f'(id >= {i}) & (id < {i + args.batch_size})')
+        # sample = trainTerms.query(f'(id >= {i}) & (id < {i + args.batch_size})')
+        sample = trainTerms[(trainTerms['id'] >= i) & (trainTerms['id'] < i + args.batch_size)].copy()
         batch_len = min(args.batch_size, length - i)
 
+        mappers = {}
+        rev_mappers = {}
         for G in ontologies:
-            mapper = cudf.Series(get_funcs_mapper(G))
+            mappers[G.ns] = pd.Series(get_funcs_mapper(G))
+            rev_mappers[G.ns] = pd.Series(get_funcs_mapper(G, False))
+            
+            mapper = mappers[G.ns]
             sample['term_id'] = sample['term'].map(mapper)
-            sample_ont = sample.dropna().astype({'term_id': cp.int32})
+            # sample_ont = sample.dropna().astype({'term_id': cp.int32})
+            sample_ont = sample.dropna(subset=['term_id']).copy()
+            sample_ont['term_id'] = sample_ont['term_id'].astype(np.int32)
 
-            sample_ont['id'] = sample_ont['id'] - i
+            sample_ont['id'] = (sample_ont['id'].astype(np.int64) - i).astype(np.int64)
 
             mat = cp.zeros((batch_len, G.idxs), dtype=cp.float32)
-            mat.scatter_add((sample_ont['id'].values, sample_ont['term_id'].values), sample_ont['prob'].values)
+            # mat.scatter_add((sample_ont['id'].values, sample_ont['term_id'].values), sample_ont['prob'].values)
+            rid = cp.asarray(sample_ont['id'].to_numpy(np.int64))
+            cid = cp.asarray(sample_ont['term_id'].to_numpy(np.int32))
+            val = cp.asarray(sample_ont['prob'].to_numpy(np.float32))
+            mat.scatter_add((rid, cid), val)
             mat = cp.clip(mat, 0, 1)
             mat_old = mat.copy()
 
@@ -136,15 +151,20 @@ if __name__ == '__main__':
 
             mat = mat * args.lr + mat_old * (1 - args.lr)
 
+            rev_mapper = rev_mappers[G.ns]
+
             for j in range(0, mat.shape[0], args.batch_inner):
                 mat_batch = mat[j: j + args.batch_inner]
                 row, col = cp.nonzero(mat_batch)
 
-                sample_batch = cudf.DataFrame({
+                row_h = cp.asnumpy(row).astype(np.int64)
+                col_h = cp.asnumpy(col).astype(np.int64)
+                prob_h = cp.asnumpy(mat_batch[row, col]).astype(np.float32)
 
-                    'EntryID': back_prot_id[i + j + row].reset_index(drop=True),
-                    'term': cudf.Series(get_funcs_mapper(G, False))[col].reset_index(drop=True),
-                    'prob': mat_batch[row, col]
+                sample_batch = pd.DataFrame({
+                    'EntryID': back_prot_id.iloc[i + j + row_h].reset_index(drop=True),
+                    'term': rev_mapper.iloc[col_h].reset_index(drop=True),
+                    'prob': prob_h
                 }).sort_values(['EntryID', 'term'], ascending=True)
 
                 sample_batch['prob'] = sample_batch['prob'].astype(str).str.slice(0, 5)
@@ -153,5 +173,5 @@ if __name__ == '__main__':
                 asp = ns_str.upper() + 'O'
 
                 with open(output_path, 'w' if flg else 'a') as f:
-                    sample_batch.to_csv(f, index=False, sep='\t', header=None)
+                    sample_batch.to_csv(f, index=False, sep='\t', header=False)
                     flg = False
