@@ -30,7 +30,7 @@ if __name__ == '__main__':
 
     graph_path = os.path.join(config['base_path'], 'Train/go-basic.obo')
     temporal_path = os.path.join(config['base_path'], config['temporal_path'])
-    ia_path = os.path.join(config['base_path'], 'IA.txt')
+    ia_path = os.path.join(config['base_path'], 'IA.tsv')
     pp_path = os.path.join(config['base_path'], config['models_path'], 'postproc')
     pp_min = os.path.join(pp_path, f'pred_min.tsv')
     pp_max = os.path.join(pp_path, f'pred_max.tsv')
@@ -61,41 +61,41 @@ if __name__ == '__main__':
         print('CAFA5 Scores')
         print(score)
 
-    # make submission part
-    mapper = []
-    for n, (ns, terms_dict) in enumerate(obo_parser(graph_path).items()):
-        G = Graph(ns, terms_dict, None, True)
-        terms = [x['id'] for x in G.terms_list]
-        mapper.append(pd.Series([n] * len(terms), index=terms))
+    # # make submission part
+    # mapper = []
+    # for n, (ns, terms_dict) in enumerate(obo_parser(graph_path).items()):
+    #     G = Graph(ns, terms_dict, None, True)
+    #     terms = [x['id'] for x in G.terms_list]
+    #     mapper.append(pd.Series([n] * len(terms), index=terms))
 
-    mapper = pd.concat(mapper)
+    # mapper = pd.concat(mapper)
 
-    # goa leak
-    goa = pd.read_csv(
-        os.path.join(temporal_path, 'labels/prop_test_leak_no_dup.tsv'),
-        sep='\t', usecols=['EntryID', 'term'])
-    goa['prob'] = 0.99
+    # # goa leak
+    # goa = pd.read_csv(
+    #     os.path.join(temporal_path, 'labels/prop_test_leak_no_dup.tsv'),
+    #     sep='\t', usecols=['EntryID', 'term'])
+    # goa['prob'] = 0.99
 
-    # gq51 dataset
-    qg = pd.read_csv(
-        os.path.join(temporal_path, 'prop_quickgo51.tsv'),
-        sep='\t', usecols=['EntryID', 'term'])
-    qg['prob'] = 0.99
+    # # gq51 dataset
+    # qg = pd.read_csv(
+    #     os.path.join(temporal_path, 'prop_quickgo51.tsv'),
+    #     sep='\t', usecols=['EntryID', 'term'])
+    # qg['prob'] = 0.99
 
-    # diff
-    diff = pd.read_csv(
-        os.path.join(temporal_path, 'cafa-terms-diff.tsv'),
-        header=None, sep='\t', names=['EntryID', 'term', 'prob']
-    )
+    # # diff
+    # diff = pd.read_csv(
+    #     os.path.join(temporal_path, 'cafa-terms-diff.tsv'),
+    #     header=None, sep='\t', names=['EntryID', 'term', 'prob']
+    # )
 
-    # collect all together
-    pred = pd.concat([pred, qg, goa, diff], ignore_index=False)
-    pred['ns'] = pred['term'].map(mapper)
-    # pred = pred.groupby(['EntryID', 'term']).mean().reset_index()
-    pred = pred.groupby(['EntryID', 'term'], as_index=False).mean()
-    pred['rank'] = pred.groupby(['EntryID', 'ns'])['prob'].rank(method='dense', ascending=False) - 1
-    pred = pred.query('rank < 500')
+    # # collect all together
+    # pred = pd.concat([pred, qg, goa, diff], ignore_index=False)
+    # pred['ns'] = pred['term'].map(mapper)
+    # # pred = pred.groupby(['EntryID', 'term']).mean().reset_index()
+    # pred = pred.groupby(['EntryID', 'term'], as_index=False).mean()
+    # pred['rank'] = pred.groupby(['EntryID', 'ns'])['prob'].rank(method='dense', ascending=False) - 1
+    # pred = pred.query('rank < 500')
 
-    pred[['EntryID', 'term', 'prob']].to_csv(
-        os.path.join(sub_path, 'submission.tsv'), header=False, index=False, sep='\t'
-    )
+    # pred[['EntryID', 'term', 'prob']].to_csv(
+    #     os.path.join(sub_path, 'submission.tsv'), header=False, index=False, sep='\t'
+    # )

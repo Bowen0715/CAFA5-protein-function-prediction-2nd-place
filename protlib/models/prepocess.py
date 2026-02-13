@@ -9,12 +9,15 @@ from ..metric import get_funcs_mapper
 
 def get_tax(fasta):
     # TODO: update tax list
-    tax_list = [
-        9606, 3702, 10090, 7955, 7227, 10116, 559292, 6239,
-        284812, 83333, 83332, 44689, 237561, 39947, 9031, 36329,
-        9913, 227321, 8355, 9823, 224308, 330879, 4577, 170187,
-        9615, 99287, 85962, 243232, 287, 235443, 8364
-    ]
+    # tax_list = [
+    #     9606, 3702, 10090, 7955, 7227, 10116, 559292, 6239,
+    #     284812, 83333, 83332, 44689, 237561, 39947, 9031, 36329,
+    #     9913, 227321, 8355, 9823, 224308, 330879, 4577, 170187,
+    #     9615, 99287, 85962, 243232, 287, 235443, 8364
+    # ]
+    tax_path = "/root/autodl-tmp/CAFA5-protein-function-prediction-2nd-place/protlib/models/tax.txt"
+    with open(tax_path) as f:
+        tax_list = [int(line.strip()) for line in f if line.strip()]
 
     tax = fasta['taxonomyID'].map(
         {x: n for (n, x) in enumerate(tax_list, 1)}

@@ -122,10 +122,10 @@ if __name__ == '__main__':
         mappers = {}
         rev_mappers = {}
         for G in ontologies:
-            mappers[G.ns] = pd.Series(get_funcs_mapper(G))
-            rev_mappers[G.ns] = pd.Series(get_funcs_mapper(G, False))
+            mappers[G] = pd.Series(get_funcs_mapper(G))
+            rev_mappers[G] = pd.Series(get_funcs_mapper(G, False))
             
-            mapper = mappers[G.ns]
+            mapper = mappers[G]
             sample['term_id'] = sample['term'].map(mapper)
             # sample_ont = sample.dropna().astype({'term_id': cp.int32})
             sample_ont = sample.dropna(subset=['term_id']).copy()
@@ -151,7 +151,7 @@ if __name__ == '__main__':
 
             mat = mat * args.lr + mat_old * (1 - args.lr)
 
-            rev_mapper = rev_mappers[G.ns]
+            rev_mapper = rev_mappers[G]
 
             for j in range(0, mat.shape[0], args.batch_inner):
                 mat_batch = mat[j: j + args.batch_inner]

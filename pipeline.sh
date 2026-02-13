@@ -219,7 +219,8 @@ done
 # ---- postproc / submission ----
 "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/postproc/collect_ttas.py" \
   --config-path "${CONFIG_PATH}" \
-  --device 0
+  --device 0 \
+  2>&1 | tee -a "/root/autodl-tmp/cafa6/logs/sub.log"
 
 "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/postproc/step.py" \
   --config-path "${CONFIG_PATH}" \
@@ -227,7 +228,9 @@ done
   --batch_size 30000 \
   --batch_inner 3000 \
   --lr 0.7 \
-  --direction min
+  --direction min \
+  2>&1 | tee -a "/root/autodl-tmp/cafa6/logs/sub.log"
+
 
 "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/postproc/step.py" \
   --config-path "${CONFIG_PATH}" \
@@ -235,7 +238,9 @@ done
   --batch_size 30000 \
   --batch_inner 3000 \
   --lr 0.7 \
-  --direction max
+  --direction max \
+  2>&1 | tee -a "/root/autodl-tmp/cafa6/logs/sub.log"
+
 
 "${RAPIDS_ENV}" "${BASE_PATH}/protlib/scripts/postproc/make_submission.py" \
   --config-path "${CONFIG_PATH}" \

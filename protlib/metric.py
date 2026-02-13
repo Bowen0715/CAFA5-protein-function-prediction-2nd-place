@@ -227,7 +227,7 @@ def iterate_from_df(df, G, batch_size, idx, back_idx, prop_mode='fill'):
     n_funcs = len(G.terms_list)
 
     check = pd.Series(np.ones(n_funcs, dtype=np.float32), index=[x['id'] for x in G.terms_list])
-    sub_single = sub[sub['ID'].map(check).notnull()]
+    sub_single = sub[sub['ID'].map(check).notnull()].copy()
     # add numeric id for function inside the domain
 
     fmap = get_funcs_mapper(G)
